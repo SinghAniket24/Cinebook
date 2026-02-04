@@ -1,11 +1,8 @@
 target/
 *.class
-.settings/
-.classpath
-.project
+bin/
 .DS_Store
 .vscode/
-bin/
 logs/
 *.log
-/.metadata/
+.metadata/
