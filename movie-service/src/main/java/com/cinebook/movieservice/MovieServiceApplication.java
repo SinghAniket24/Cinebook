@@ -10,6 +10,9 @@ public class MovieServiceApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(MovieServiceApplication.class, args);
+		System.setProperty("java.net.preferIPv4Stack", "true");
+	    
+	    SpringApplication.run(MovieServiceApplication.class, args);
 	}
 
 }

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sign Up | CineBook</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>body { background-color: #0A0A0A; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; }</style>
+</head>
+<body>
+    <div class="bg-[#1a1a1a] p-8 rounded-xl shadow-2xl w-full max-w-md border border-gray-800">
+        <h1 class="text-3xl font-bold text-center mb-6 text-red-600">CineBook</h1>
+        <h2 class="text-xl font-semibold mb-4 text-center">Create Account</h2>
+        
+        <input type="text" id="name" placeholder="Full Name" class="w-full bg-[#222] border border-gray-700 p-3 rounded mb-4 text-white focus:outline-none focus:border-red-600">
+        <input type="email" id="email" placeholder="Email Address" class="w-full bg-[#222] border border-gray-700 p-3 rounded mb-4 text-white focus:outline-none focus:border-red-600">
+        <input type="password" id="password" placeholder="Password" class="w-full bg-[#222] border border-gray-700 p-3 rounded mb-6 text-white focus:outline-none focus:border-red-600">
+        
+        <button onclick="signup()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded transition">Sign Up</button>
+        
+        <p class="text-center text-gray-500 text-sm mt-4">
+            Already have an account? <a href="login.html" class="text-white hover:underline">Login</a>
+        </p>
+    </div>
+
+    <script>
+        const API_GATEWAY = "http://localhost:8080";
+
+        async function signup() {
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const res = await fetch(`${API_GATEWAY}/auth/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    Swal.fire('Success', 'Account created! Please login.', 'success')
+                        .then(() => window.location.href = 'login.html');
+                } else {
+                    Swal.fire('Error', data.error, 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                Swal.fire('Error', 'Server error', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

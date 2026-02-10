@@ -5,20 +5,23 @@ public class BookingMessage {
     private String movieName;
     private String seatNumber;
     private String status;
+    private String email; 
 
     // Default Constructor
     public BookingMessage() {
     }
 
-    // Parameterized Constructor
-    public BookingMessage(Long bookingId, String movieName, String seatNumber, String status) {
+    // --- FIXED CONSTRUCTOR ---
+    // Added 'String email' to the parameters so it can be assigned correctly
+    public BookingMessage(Long bookingId, String movieName, String seatNumber, String status, String email) {
         this.bookingId = bookingId;
         this.movieName = movieName;
         this.seatNumber = seatNumber;
         this.status = status;
+        this.email = email; 
     }
 
-    // --- GETTERS (This fixes your error) ---
+    // --- GETTERS ---
     public Long getBookingId() {
         return bookingId;
     }
@@ -33,6 +36,10 @@ public class BookingMessage {
 
     public String getStatus() {
         return status;
+    }
+    
+    public String getEmail() {
+        return email;
     }
 
     // --- SETTERS ---
@@ -52,9 +59,17 @@ public class BookingMessage {
         this.status = status;
     }
 
-    // toString() for printing logs
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    // --- UPDATED TOSTRING ---
     @Override
     public String toString() {
-        return "BookingMessage [bookingId=" + bookingId + ", movieName=" + movieName + ", seatNumber=" + seatNumber + "]";
+        return "BookingMessage [bookingId=" + bookingId + 
+               ", movieName=" + movieName + 
+               ", seatNumber=" + seatNumber + 
+               ", status=" + status + 
+               ", email=" + email + "]";
     }
 }

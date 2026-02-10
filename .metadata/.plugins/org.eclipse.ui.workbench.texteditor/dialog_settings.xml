@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <section name="Workbench">
 	<section name="java.lang.Class">
-		<item key="selection" value="started"/>
+		<item key="selection" value=""/>
 		<item key="wrap" value="true"/>
 		<item key="casesensitive" value="false"/>
 		<item key="wholeword" value="false"/>
@@ -9,6 +9,9 @@
 		<item key="isRegEx" value="false"/>
 		<item key="replaceBarOpen" value="false"/>
 		<list key="findhistory">
+			<item value="tmdb"/>
+			<item value="open"/>
+			<item value="processBooking"/>
 			<item value="onclick=&quot;window.location.href=&apos;index.html?id=${movie.id}&apos;&quot;onclick=&quot;window.location.href=&apos;showtimes.html?id=${movie.id}&amp;cityId=&apos; + currentCityId&quot;"/>
 			<item value="onclick=&quot;window.location.href=&apos;index.html?id=${movie.id}&apos;&quot;"/>
 			<item value="view"/>

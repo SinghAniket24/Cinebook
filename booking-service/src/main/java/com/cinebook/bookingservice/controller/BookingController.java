@@ -1,22 +1,14 @@
 package com.cinebook.bookingservice.controller;
 
 import java.time.LocalDateTime;
-
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
+import org.springframework.web.bind.annotation.*;
 import com.cinebook.bookingservice.client.MovieClient;
-import com.cinebook.bookingservice.client.NotificationClient;
-// --- NEW RABBITMQ IMPORTS ---
 import com.cinebook.bookingservice.config.RabbitMQConfig;
 import com.cinebook.bookingservice.dto.BookingMessage;
 import com.cinebook.bookingservice.entity.Booking;
 import com.cinebook.bookingservice.repository.BookingRepository;
-
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 
 @RestController
@@ -30,49 +22,50 @@ public class BookingController {
     private MovieClient movieClient;
 
     @Autowired
-    private NotificationClient notificationClient; // Kept for reference, but we won't use it now
-
-    @Autowired
-    private RabbitTemplate rabbitTemplate; // <--- NEW: Inject RabbitTemplate
+    private RabbitTemplate rabbitTemplate;
 
     @GetMapping("/create")
     @CircuitBreaker(name = "movieService", fallbackMethod = "bookingFallback")
-    public String createBooking(@RequestParam Long userId, @RequestParam Long seatId, @RequestParam Long movieId) {
+    public String createBooking(
+            @RequestParam Long userId, 
+            @RequestParam Long seatId, 
+            @RequestParam Long movieId,
+            @RequestParam String email,
+            @RequestParam String movieTitle) { // <--- NEW PARAMETER
         
-        System.out.println("DEBUG: Starting booking for Seat " + seatId); // <--- Add this
+        System.out.println("DEBUG: Booking Title: " + movieTitle);
 
-        boolean success = movieClient.bookSeat(seatId);
+        boolean success = movieClient.bookSeat(seatId, userId);
 
         if (success) {
-            System.out.println("DEBUG: Movie Service confirmed seat is free."); // <--- Add this
-            
             Booking b = new Booking();
             b.setUserId(userId);
             b.setSeatId(seatId);
             b.setMovieId(movieId);
             b.setBookingTime(LocalDateTime.now());
             bookingRepo.save(b);
-            System.out.println("DEBUG: Booking saved to DB."); // <--- Add this
 
             try {
-                // --- RABBITMQ LOGIC ---
-                BookingMessage message = new BookingMessage(b.getId(), "Avengers", "A" + seatId, "CONFIRMED");
+                // Use the REAL title in the message
+                BookingMessage message = new BookingMessage(
+                    b.getId(), 
+                    movieTitle, // <--- PASS IT HERE
+                    "A" + seatId, 
+                    "CONFIRMED", 
+                    email
+                );
+                
                 rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE, RabbitMQConfig.ROUTING_KEY, message);
-                System.out.println("🐇 Message Sent to Queue: " + message);
+                return "Success";
             } catch (Exception e) {
-                // THIS WILL PRINT THE REAL ERROR
-                e.printStackTrace(); 
-                return "Booking Saved, but Notification Failed: " + e.getMessage();
+                e.printStackTrace();
+                return "Booking Saved, Notification Failed.";
             }
-
-            return "Booking Successful! Ticket will be generated in background.";
-        } else {
-            return "Booking Failed! Seat already taken.";
         }
+        return "Failed";
     }
 
-    // --- FALLBACK METHOD ---
-    public String bookingFallback(Long userId, Long seatId, Long movieId, Throwable t) {
-        return "⚠️ MAINTENANCE MODE: The Movie Booking System is temporarily unavailable. Please try again later. (Error: " + t.getMessage() + ")";
+    public String bookingFallback(Long userId, Long seatId, Long movieId, String email, String movieTitle, Throwable t) {
+        return "⚠️ Service Unavailable";
     }
 }

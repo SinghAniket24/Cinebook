@@ -17,6 +17,7 @@ import com.cinebook.movieservice.entity.Seat;
 import com.cinebook.movieservice.repository.SeatRepository; // <--- Import This
 import com.cinebook.movieservice.service.BmsScraperService;
 import com.cinebook.movieservice.service.MovieService;
+import com.cinebook.movieservice.service.StripeService;
 import com.cinebook.movieservice.service.TmdbService;
 
 @RestController
@@ -34,6 +35,9 @@ public class MovieController {
 
     @Autowired
     private SeatRepository seatRepo; // <--- Added this to save the JSON data directly
+    
+    @Autowired
+    private StripeService stripeService;
 
     // 1. Get Live "Now Playing" Data (Proxy to TMDB)
     @GetMapping("/now-playing")
@@ -70,10 +74,13 @@ public class MovieController {
  // NEW: Book Multiple Seats
  // ... existing endpoints
 
-    // NEW: Book Multiple Seats
     @PostMapping("/seats/book-multiple")
-    public boolean bookMultipleSeats(@RequestBody List<Long> seatIds) {
-        return movieService.bookSeats(seatIds);
+    public boolean bookMultipleSeats(@RequestBody List<Long> seatIds, @RequestParam Long userId) {
+        return movieService.bookSeats(seatIds, userId);
+    }
+    @PostMapping("/payment/create-session")
+    public String createPaymentSession(@RequestParam double amount) {
+        return stripeService.createCheckoutSession(amount);
     }
 
     // 6. Load JSON Data (The "Smart Way" - Simulation Mode)

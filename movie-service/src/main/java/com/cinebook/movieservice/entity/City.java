@@ -2,6 +2,7 @@ package com.cinebook.movieservice.entity;
 
 import jakarta.persistence.*;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 public class City {
@@ -10,12 +11,17 @@ public class City {
     private Long id;
 
     private String name;
-    private String iconUrl;
+    
+    // New Field for the UI
+    private String iconUrl; 
 
     @OneToMany(mappedBy = "city", cascade = CascadeType.ALL)
+    @JsonIgnore // Prevents the "Infinite Recursion" crash we fixed earlier
     private List<Cinema> cinemas;
 
-    // --- MANUAL GETTERS & SETTERS (To fix your error) ---
+    public City() {}
+
+    // --- Getters & Setters ---
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

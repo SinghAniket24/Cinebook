@@ -8,7 +8,8 @@
         <listEntry value="1"/>
     </listAttribute>
     <mapAttribute key="org.eclipse.debug.core.environmentVariables">
-        <mapEntry key="TMDB_API_KEY" value="d2bfad619e2fd3fdb2697356fe56f518"/>
+        <mapEntry key="STRIPE_API_KEY" value=""/>
+        <mapEntry key="TMDB_API_KEY" value=""/>
     </mapAttribute>
     <booleanAttribute key="org.eclipse.jdt.launching.ATTR_ATTR_USE_ARGFILE" value="false"/>
     <booleanAttribute key="org.eclipse.jdt.launching.ATTR_EXCLUDE_TEST_CODE" value="true"/>

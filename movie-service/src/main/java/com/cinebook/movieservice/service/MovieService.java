@@ -1,16 +1,16 @@
 package com.cinebook.movieservice.service;
 
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.cinebook.movieservice.entity.Movie;
 import com.cinebook.movieservice.entity.Seat;
 import com.cinebook.movieservice.repository.MovieRepository;
 import com.cinebook.movieservice.repository.SeatRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 public class MovieService {
@@ -21,100 +21,96 @@ public class MovieService {
     @Autowired
     private SeatRepository seatRepo;
 
-    // 1. PUBLIC ENTRY POINT (Not Transactional itself, to avoid poisoning)
-    public void ensureMovieExists(Long tmdbId, String title) {
-        // FIX: Check if SEATS exist, not just the movie
-        long seatCount = seatRepo.countByMovieId(tmdbId);
-        
-        if (seatCount > 0) {
-            return; // Seats already exist, we are good.
-        }
-        
+    // --- 1. ENTRY POINT (Synchronized) ---
+    public synchronized void ensureMovieExists(Long tmdbId, String title) {
+        // Fast Check: If seats exist, we are good.
+        if (seatRepo.countByMovieId(tmdbId) > 0) return;
+
+        // If not, generate them safely
+        generateLayoutSafe(tmdbId, title);
+    }
+
+    // --- 2. ROBUST LAYOUT GENERATOR (No Global Transaction) ---
+    // We remove @Transactional here so failures in one row don't kill the whole process
+    public void generateLayoutSafe(Long tmdbId, String title) {
+        System.out.println("✨ Generating Theater Layout for: " + title);
+
+        // A. Save Movie Metadata
         try {
-            createMovieDataIsolated(tmdbId, title);
-        } catch (Exception e) {
-            System.out.println("⚠️ Concurrency safe-guard: " + e.getMessage());
-        }
-    }
-
-    // 2. ISOLATED TRANSACTION (The Magic Fix)
-    // 'REQUIRES_NEW' means: "Pause the main transaction, start a new one just for this."
-    // If this rolls back, it DOES NOT kill the main request.
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void createMovieDataIsolated(Long tmdbId, String title) {
-        // 1. Save Movie if missing
-        if (!movieRepo.existsById(tmdbId)) {
-            Movie m = new Movie();
-            m.setId(tmdbId);
-            m.setTitle(title);
-            m.setDescription("Imported from TMDB");
-            movieRepo.save(m);
-        }
-
-        // 2. Generate Realistic Layout (Based on your Request)
-        if (seatRepo.countByMovieId(tmdbId) == 0) {
-            System.out.println("   -> Generating Theater Layout for: " + title);
-            
-            // Category 1: Recliners (Rows K, L) - Expensive
-            createRow(tmdbId, "L", 14, 570.0);
-            createRow(tmdbId, "K", 14, 570.0);
-
-            // Category 2: Prime (Rows C to J) - Mid Range
-            char[] primeRows = {'J', 'H', 'G', 'F', 'E', 'D', 'C'};
-            for (char r : primeRows) {
-                createRow(tmdbId, String.valueOf(r), 15, 310.0);
+            if (!movieRepo.existsById(tmdbId)) {
+                Movie m = new Movie();
+                m.setId(tmdbId);
+                m.setTitle(title);
+                m.setDescription("Imported from TMDB");
+                movieRepo.save(m);
             }
+        } catch (Exception e) {
+            System.out.println("   -> Movie exists (Concurrency handled).");
+        }
 
-            // Category 3: Classic (Rows A, B) - Cheap
-            createRow(tmdbId, "B", 15, 290.0);
-            createRow(tmdbId, "A", 15, 290.0);
-            
-            System.out.println("   -> Layout Generated.");
+        // B. Generate Seats (Row by Row)
+        // Recliners (Top)
+        createRowSafe(tmdbId, "L", 14, 570.0);
+        createRowSafe(tmdbId, "K", 14, 570.0);
+
+        // Prime (Middle)
+        char[] primeRows = {'J', 'H', 'G', 'F', 'E', 'D', 'C'};
+        for (char r : primeRows) createRowSafe(tmdbId, String.valueOf(r), 15, 310.0);
+
+        // Classic (Front)
+        createRowSafe(tmdbId, "B", 15, 290.0);
+        createRowSafe(tmdbId, "A", 15, 290.0);
+
+        System.out.println("✅ Layout Generation Complete.");
+    }
+
+    // Helper: Save individual seat safely
+    private void createRowSafe(Long movieId, String rowCode, int seatCount, double price) {
+        for (int i = 1; i <= seatCount; i++) {
+            try {
+                String seatNum = rowCode + i;
+                Seat s = new Seat();
+                s.setSeatNumber(seatNum);
+                s.setMovieId(movieId);
+                s.setStatus("AVAILABLE");
+                s.setPrice(price);
+                seatRepo.save(s); 
+            } catch (Exception e) {
+                // Ignore duplicates, keep going!
+            }
         }
     }
 
-    private void createRow(Long movieId, String rowCode, int seatCount, double price) {
-        for (int i = 1; i <= seatCount; i++) {
-            Seat s = new Seat();
-            // Format: "A1", "A2"...
-            s.setSeatNumber(rowCode + i); 
-            s.setMovieId(movieId);
-            s.setStatus("AVAILABLE");
-            s.setPrice(price);
-            seatRepo.save(s);
-        }
-    }    @Cacheable(value = "movies", key = "#movieId")
+    // --- 3. GETTERS ---
+    @Cacheable(value = "movies", key = "#movieId")
     public List<Seat> getSeats(Long movieId) {
         return seatRepo.findByMovieId(movieId);
     }
 
-    // 4. Book Seat Logic
+    // --- 4. BOOKING LOGIC ---
+
+    // NEW: Book Multiple Seats (Now accepts User ID)
     @Transactional
-    public boolean bookSeat(Long seatId) {
-        Seat seat = seatRepo.findById(seatId).orElse(null);
-        if (seat != null && "AVAILABLE".equals(seat.getStatus())) {
-            seat.setStatus("BOOKED");
-            seatRepo.save(seat); // Optimistic locking handles concurrency here
-            return true;
-        }
-        return false;
-    }
-    @Transactional
-    public boolean bookSeats(List<Long> seatIds) {
+    public boolean bookSeats(List<Long> seatIds, Long userId) {
         List<Seat> seats = seatRepo.findAllById(seatIds);
         
-        // Validation: Are ALL seats available?
+        // Validation: Ensure all seats are available
         for (Seat seat : seats) {
-            if (!"AVAILABLE".equals(seat.getStatus())) {
-                return false; // Fail if even one seat is taken
-            }
+            if (!"AVAILABLE".equals(seat.getStatus())) return false;
         }
 
-        // Book them all
+        // Processing: Lock seats and assign User ID
         for (Seat seat : seats) {
             seat.setStatus("BOOKED");
+            seat.setUserId(userId); // <--- Now works because userId is passed in arguments
             seatRepo.save(seat);
         }
         return true;
     }
- }
+
+    // OLD: Single Seat Wrapper (Passes null for legacy calls)
+    @Transactional
+    public boolean bookSeat(Long seatId) {
+        return bookSeats(List.of(seatId), null);
+    }
+}

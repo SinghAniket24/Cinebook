@@ -13,6 +13,7 @@ public class Seat {
     private String status; 
     private Long movieId;
     private Double price;
+    private Long userId; // New Field: Stores the ID of the user who booked it
 
     @Version
     private Integer version;
@@ -35,5 +36,8 @@ public class Seat {
     
     public Double getPrice() { return price; }
     public void setPrice(Double price) { this.price = price; }
+    
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
 
 }

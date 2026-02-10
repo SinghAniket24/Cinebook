@@ -1,9 +1,18 @@
 package com.cinebook.movieservice.service;
 
+import io.netty.channel.ChannelOption;
+import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.netty.handler.timeout.WriteTimeoutHandler;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.netty.http.client.HttpClient;
+
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class TmdbService {
@@ -13,16 +22,47 @@ public class TmdbService {
     @Value("${tmdb.api.key}")
     private String apiKey;
 
+    // --- 🧠 SMART CACHE MEMORY ---
+    // This variable holds the Real JSON even if the internet disconnects later
+    private String lastRealData = null; 
+
     public TmdbService(@Value("${tmdb.api.base-url}") String baseUrl) {
-        this.webClient = WebClient.builder().baseUrl(baseUrl).build();
+        // --- ⏱️ TIMEOUT CONFIGURATION (5 Seconds) ---
+        // If TMDB takes longer than 5s, we abort and use fallback data.
+        HttpClient httpClient = HttpClient.create()
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000)
+                .responseTimeout(Duration.ofSeconds(5))
+                .doOnConnected(conn -> 
+                        conn.addHandlerLast(new ReadTimeoutHandler(5000, TimeUnit.MILLISECONDS))
+                            .addHandlerLast(new WriteTimeoutHandler(5000, TimeUnit.MILLISECONDS)));
+
+        this.webClient = WebClient.builder()
+                .baseUrl(baseUrl)
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .build();
     }
 
-    // 1. Get "Now Showing" (With Fallback)
+    // --- 🚀 AUTO-STARTUP FETCH ---
+    // This runs automatically when the App starts. 
+    // It tries to grab real data immediately so it's ready for the user.
+    @PostConstruct
+    public void seedDataOnStartup() {
+        System.out.println("🌱 Startup: Attempting to fetch Real Movie Data...");
+        // We call the method, but we don't return anything since it's just seeding
+        // The method itself will update 'lastRealData' if successful
+        try {
+            getNowPlayingMovies(); 
+        } catch (Exception e) {
+            System.out.println("⚠️ Startup fetch failed (Internet might be down). Will try again on user request.");
+        }
+    }
+
+    // 1. Get "Now Showing" (With Smart Fallback)
     @Cacheable(value = "nowPlaying", key = "'india'") 
     public String getNowPlayingMovies() {
         try {
             System.out.println("🌍 Connecting to TMDB API...");
-            return webClient.get()
+            String response = webClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/movie/now_playing")
                             .queryParam("api_key", apiKey)
@@ -31,9 +71,25 @@ public class TmdbService {
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
+            
+            // ✅ SUCCESS! Save this real data to our memory variable
+            if (response != null && !response.isEmpty()) {
+                this.lastRealData = response;
+                System.out.println("✅ TMDB Success! Data cached in memory.");
+            }
+            return response;
+
         } catch (Exception e) {
-            System.err.println("⚠️ TMDB Unreachable (" + e.getMessage() + "). Using Mock Data.");
-            return MOCK_NOW_PLAYING; // Return fake JSON so frontend loads!
+            System.err.println("⚠️ TMDB Unreachable (" + e.getMessage() + ")");
+            
+            // 🛡️ FALLBACK STRATEGY
+            if (this.lastRealData != null) {
+                System.out.println("♻️ Network failed, but using SAVED REAL DATA from memory.");
+                return this.lastRealData; // <--- Return the old real movies!
+            }
+            
+            System.err.println("❌ No real data found. Falling back to MOCK DATA.");
+            return MOCK_NOW_PLAYING; // Last resort
         }
     }
 
@@ -56,7 +112,7 @@ public class TmdbService {
         }
     }
 
-    // --- MOCK DATA (Saved my life during demos!) ---
+    // --- MOCK DATA ---
     private static final String MOCK_NOW_PLAYING = """
     {
         "results": [

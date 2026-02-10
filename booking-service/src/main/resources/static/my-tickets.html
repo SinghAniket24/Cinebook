@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Tickets | CineBook</title>
+	<script src="js/auth-interceptor.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
+    <style>
+        body { background-color: #0A0A0A; color: white; font-family: 'Manrope', sans-serif; }
+        .ticket-card { background: linear-gradient(145deg, #1a1a1a, #151515); }
+        .punch-hole {
+            width: 20px; height: 20px; background-color: #0A0A0A; border-radius: 50%;
+            position: absolute; top: 50%; transform: translateY(-50%);
+        }
+        .punch-left { left: -10px; }
+        .punch-right { right: -10px; }
+    </style>
+</head>
+<body>
+
+    <nav class="p-6 border-b border-white/5 flex justify-between items-center bg-[#0F0F0F]">
+        <a href="home.html" class="flex items-center gap-2 text-gray-400 hover:text-white transition">
+            <span class="material-symbols-rounded">arrow_back</span> Back to Home
+        </a>
+        <h1 class="text-xl font-bold">My Bookings</h1>
+        <div class="w-20"></div> </nav>
+
+    <main class="max-w-4xl mx-auto px-6 py-10">
+        <div id="tickets-container" class="space-y-6">
+            <div class="text-center text-gray-500 animate-pulse mt-10">Loading your tickets...</div>
+        </div>
+    </main>
+
+    <script>
+        const API_GATEWAY = "http://localhost:8080";
+
+        document.addEventListener("DOMContentLoaded", () => {
+            loadTickets();
+        });
+
+        async function loadTickets() {
+            const userStr = localStorage.getItem('user');
+            if (!userStr) {
+                window.location.href = 'login.html';
+                return;
+            }
+            const user = JSON.parse(userStr);
+            const container = document.getElementById('tickets-container');
+
+            try {
+                const res = await fetch(`${API_GATEWAY}/user/bookings/${user.userId}`);
+                const bookings = await res.json();
+
+                container.innerHTML = "";
+
+                if (bookings.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-20">
+                            <span class="material-symbols-rounded text-6xl text-gray-700 mb-4">sentiment_dissatisfied</span>
+                            <h2 class="text-xl font-bold text-gray-400">No bookings yet</h2>
+                            <p class="text-gray-600 mt-2">Go watch a movie!</p>
+                        </div>`;
+                    return;
+                }
+
+                bookings.forEach(b => {
+                    container.innerHTML += `
+                        <div class="ticket-card relative flex rounded-xl overflow-hidden border border-gray-800 shadow-xl min-h-[160px]">
+                            
+                            <div class="w-1/4 bg-gray-800 relative hidden md:block">
+                                <img src="https://image.tmdb.org/t/p/w500/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg" class="w-full h-full object-cover opacity-60">
+                                <div class="absolute inset-0 bg-gradient-to-r from-transparent to-[#151515]"></div>
+                            </div>
+
+                            <div class="flex-1 p-6 flex flex-col justify-center border-r border-dashed border-gray-700 relative">
+                                <div class="punch-hole punch-right"></div> 
+                                <h2 class="text-2xl font-bold text-white mb-1">${b.movieTitle}</h2>
+                                <p class="text-xs text-gray-400 font-bold tracking-wider mb-4">HINDI • 2D</p>
+                                
+                                <div class="flex gap-8 text-sm">
+                                    <div>
+                                        <p class="text-gray-500 text-xs uppercase mb-1">Date</p>
+                                        <p class="font-bold text-gray-200">Today</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-500 text-xs uppercase mb-1">Time</p>
+                                        <p class="font-bold text-gray-200">09:30 PM</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-500 text-xs uppercase mb-1">Seats</p>
+                                        <p class="font-bold text-brand-red">${b.seatNumbers}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="w-40 p-6 flex flex-col items-center justify-center bg-[#181818] relative">
+                                <div class="punch-hole punch-left"></div>
+                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${b.bookingId}" class="w-20 h-20 rounded border border-white/10 mb-2">
+                                <p class="text-[10px] text-gray-500 tracking-widest text-center">SCAN AT ENTRY</p>
+                                <span class="text-green-500 text-xs font-bold mt-2 bg-green-500/10 px-2 py-1 rounded">CONFIRMED</span>
+                            </div>
+                        </div>
+                    `;
+                });
+
+            } catch (e) {
+                container.innerHTML = `<div class="text-red-500 text-center">Failed to load tickets.</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
