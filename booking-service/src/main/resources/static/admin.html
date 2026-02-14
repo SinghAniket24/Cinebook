@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineBook | Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Manrope', 'sans-serif'], header: ['Bebas Neue', 'sans-serif'] },
+                    colors: { brand: { red: '#E50914', dark: '#0A0A0A' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0A0A0A; color: white; }
+        .glass-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255,255,255,0.05); }
+        tr:hover { background: rgba(255, 255, 255, 0.02); }
+    </style>
+</head>
+<body class="font-sans antialiased min-h-screen pb-20">
+
+    <nav class="fixed top-0 w-full z-50 bg-[#0A0A0A]/90 backdrop-blur-md border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-rounded text-brand-red text-3xl">analytics</span>
+                <h1 class="font-header text-2xl tracking-wide uppercase">CineBook Sales </h1>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-green-500">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Active Connection
+                </div>
+                <button onclick="window.location.href='home.html'" class="text-xs font-bold text-gray-400 hover:text-white transition uppercase tracking-widest">Exit</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-6 pt-28">
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="glass-card p-6 rounded-2xl border-l-4 border-brand-red">
+                <p class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Revenue</p>
+                <h2 class="text-4xl font-bold">₹ <span id="revenue-val">0</span></h2>
+            </div>
+            <div class="glass-card p-6 rounded-2xl">
+                <p class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Tickets Sold</p>
+                <h2 class="text-4xl font-bold" id="tickets-val">0</h2>
+            </div>
+            <div class="glass-card p-6 rounded-2xl">
+                <p class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Average Price</p>
+                <h2 class="text-4xl font-bold text-gray-300">₹ 450</h2>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+            <div class="glass-card p-8 rounded-3xl">
+                <h3 class="text-sm font-bold uppercase tracking-widest text-gray-400 mb-6 flex items-center gap-2">
+                    <span class="material-symbols-rounded text-brand-red">bar_chart</span> Weekly Revenue
+                </h3>
+                <canvas id="revenueChart" height="180"></canvas>
+            </div>
+            <div class="glass-card p-8 rounded-3xl text-center">
+                <h3 class="text-sm font-bold uppercase tracking-widest text-gray-400 mb-6 flex items-center gap-2">
+                    <span class="material-symbols-rounded text-brand-red">pie_chart</span> Occupancy
+                </h3>
+                <div class="max-w-[220px] mx-auto">
+                    <canvas id="occupancyChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card rounded-3xl overflow-hidden">
+            <div class="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
+                <h3 class="text-sm font-bold uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                    <span class="material-symbols-rounded text-brand-red">table_rows</span> Booking Records
+                </h3>
+                <button onclick="exportToCSV()" class="bg-brand-red hover:bg-red-700 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition flex items-center gap-2">
+                    <span class="material-symbols-rounded text-sm">download</span> Export CSV
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="text-gray-500 text-[10px] uppercase tracking-[0.2em] border-b border-white/5 bg-white/[0.02]">
+                            <th class="px-8 py-5">Booking ID</th>
+                            <th class="py-5">User Reference</th>
+                            <th class="py-5">Movie ID</th>
+                            <th class="py-5">Seat ID</th>
+                            <th class="py-5 text-right px-8">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bookings-body" class="text-sm">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE = "http://localhost:8082/bookings/admin";
+        let currentData = [];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            fetchData();
+        });
+
+        async function fetchData() {
+            try {
+                // Fetch Stats
+                const statsRes = await fetch(`${API_BASE}/stats`);
+                const stats = await statsRes.json();
+                document.getElementById('revenue-val').innerText = (stats.totalRevenue || 0).toLocaleString();
+                document.getElementById('tickets-val').innerText = stats.totalTickets || 0;
+
+                // Fetch Records
+                const allRes = await fetch(`${API_BASE}/all`);
+                currentData = await allRes.json();
+                
+                const tableBody = document.getElementById('bookings-body');
+                tableBody.innerHTML = currentData.map(b => `
+                    <tr class="border-b border-white/5 transition">
+                        <td class="px-8 py-5 font-mono text-brand-red font-bold">#${b.id}</td>
+                        <td class="py-5 text-gray-400 text-xs font-mono">${b.userId.substring(0,12)}...</td>
+                        <td class="py-5 font-bold text-gray-200">${b.movieId}</td>
+                        <td class="py-5 text-gray-400 italic">Seat ${b.seatId}</td>
+                        <td class="py-5 text-right px-8 font-bold text-white font-mono">₹ ${b.amount.toFixed(2)}</td>
+                    </tr>
+                `).join('');
+
+                initCharts(stats.totalRevenue, stats.totalTickets);
+            } catch (err) { console.error("Data fetch error:", err); }
+        }
+
+        function initCharts(revenue, tickets) {
+            new Chart(document.getElementById('revenueChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['Current', 'Goal'],
+                    datasets: [{
+                        data: [revenue, 10000],
+                        backgroundColor: ['#E50914', '#222'],
+                        borderRadius: 10
+                    }]
+                },
+                options: { plugins: { legend: { display: false } } }
+            });
+
+            new Chart(document.getElementById('occupancyChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Booked', 'Empty'],
+                    datasets: [{
+                        data: [tickets, 50 - tickets],
+                        backgroundColor: ['#E50914', '#1a1a1a'],
+                        borderWidth: 0
+                    }]
+                },
+                options: { cutout: '85%', plugins: { legend: { display: false } } }
+            });
+        }
+
+        // CSV EXPORT LOGIC
+        function exportToCSV() {
+            if (currentData.length === 0) return alert("No data to export!");
+
+            const headers = ["Booking ID, User ID, Movie ID, Seat ID, Amount\n"];
+            const rows = currentData.map(b => `${b.id}, ${b.userId}, ${b.movieId}, ${b.seatId}, ${b.amount}`);
+            const csvContent = "data:text/csv;charset=utf-8," + headers + rows.join("\n");
+            
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "CineBook_Report.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

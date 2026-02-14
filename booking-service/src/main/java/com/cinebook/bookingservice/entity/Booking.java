@@ -16,6 +16,9 @@ public class Booking {
     private Long movieId;
     private Long seatId;
     private LocalDateTime bookingTime;
+ // Inside Booking.java
+    private Double amount; // ADD THIS LINE
+
 
     // --- MANUAL GETTERS AND SETTERS ---
     public Long getId() { return id; }
@@ -35,4 +38,9 @@ public class Booking {
 
     public LocalDateTime getBookingTime() { return bookingTime; }
     public void setBookingTime(LocalDateTime bookingTime) { this.bookingTime = bookingTime; }
+    
+
+    // Add these to your Getters/Setters section
+    public Double getAmount() { return amount; }
+    public void setAmount(Double amount) { this.amount = amount; }
 }
